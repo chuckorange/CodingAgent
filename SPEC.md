@@ -5,7 +5,6 @@
 Develop a local coding agent  that can: understand a task, retrieve relevant repo context, propose minimal diffs, run/tests in a sandbox, and create a PR with a clean description.
 
 **MVP features**
-
 - Python Language 
 - Understand the codebase (file tree, symbols, dependencies)
 - Add small new features
@@ -32,94 +31,79 @@ Develop a local coding agent  that can: understand a task, retrieve relevant rep
 4. **Fix failing tests**: "devagent fix tests" → agent finds failure, edits code/tests, passes locally, opens PR
 5. **Explain change**: Show rationale + risks in PR and inline code comments for tricky edits
 
-### Codebase Exploration Details
-
-**Initial Project Discovery**: 
-- "What does this codebase do?" → Overview of project purpose, main features, tech stack
-- "How is this structured?" → Directory layout, module organization, key entry points
-- "What are the main data models?" → Database schemas, core entities, relationships
-
-**Architecture Understanding**:
-- "Show me the request flow" → Trace HTTP requests through middleware, handlers, services  
-- "How does authentication work?" → Map auth flow, identify security components
-- "What external services does this use?" → API integrations, databases, message queues
-
-**Development Context**:
-- "Where should I add a new API endpoint?" → Suggest appropriate files and patterns
-- "What testing patterns are used here?" → Identify test frameworks, conventions, coverage gaps
-- "How do I run/deploy this?" → Find build scripts, deployment configs, development setup
-
 ---
 ## 3) System Overview
 
 ### 3.1 Components
+
+**Entry**
 - **Command (`devagent`)** – task entrypoint
-- **Planner (LLM)** – produce structured work plan
-- **Retriever** – search over codebase
-- **Editor (LLM)** – output unified diffs; AST‑aware constraints where possible
+
+**Agents**
+- **Dispatcher** - Dispatch the query to subagent according to user's intent 
+- **Planner** – produce structured work plan
+- **Retriever** – search over codebase with tools like ls, read_file, grep, glob, etc.
+- **Editor** – output unified diffs; Write files
 - **Executor** – sandbox runner; test selection/execution
 - **Verifier** – parse results; decide pass/fail and next actions
 - **PR Bot** – creates PRs with title/body, attaches run logs, and adds inline review comments on risky hunks
 
+**Tools**
+- **Bash** - Executes a given bash command
+- **ReadFile** - Reads a file from the local filesystem
+- **WriteFile** - Write a file to the local filesystem
+
 ### 3.2 Architecture
 ```mermaid
 graph TD
-    A[User / CLI] --> B[Supervisor Agent]
-    B --> C[Planner Agent]
-    B --> D[Retriever Agent] 
-    B --> E[Editor Agent]
-    B --> F[Executor Agent]
-    B --> G[Verifier Agent]
-    B --> H[Reflector Agent]
-    B --> I[PR Agent]
+    A[User / CLI] --> B[devagent Command]
+    B --> C[Dispatcher Agent]
+    C --> D[Planner Agent]
+    C --> E[Retriever Agent] 
+    C --> F[Editor Agent]
+    C --> G[Executor Agent]
+    C --> H[Verifier Agent]
+    C --> I[Reflector Agent]
+    C --> J[PR Bot Agent]
     
-    C --> B
-    D --> B
-    E --> B
-    F --> B
-    G --> B
-    H --> B
-    I --> J[End]
+    D --> C
+    E --> C
+    F --> C
+    G --> C
+    H --> C
+    I --> C
+    J --> K[End]
     
-    B -.->|routes based on<br/>next_step| C
-    B -.->|routes based on<br/>next_step| D
-    B -.->|routes based on<br/>next_step| E
-    B -.->|routes based on<br/>next_step| F
-    B -.->|routes based on<br/>next_step| G
-    B -.->|routes based on<br/>next_step| H
-    B -.->|routes based on<br/>next_step| I
+    E -.->|uses| L[Bash Tool]
+    E -.->|uses| M[ReadFile Tool]
+    E -.->|uses| N[Glob/Grep Tools]
+    F -.->|uses| O[WriteFile Tool]
+    G -.->|uses| L
     
-    classDef supervisor fill:#e1f5fe
+    C -.->|dispatches based on<br/>user intent| D
+    C -.->|dispatches based on<br/>user intent| E
+    C -.->|dispatches based on<br/>user intent| F
+    C -.->|dispatches based on<br/>user intent| G
+    C -.->|dispatches based on<br/>user intent| H
+    C -.->|dispatches based on<br/>user intent| I
+    C -.->|dispatches based on<br/>user intent| J
+    
+    classDef entry fill:#e8f5e8
+    classDef dispatcher fill:#e1f5fe
     classDef agent fill:#f3e5f5
+    classDef tool fill:#fff3e0
     classDef terminal fill:#e8f5e8
     
-    class B supervisor
-    class C,D,E,F,G,H,I agent
-    class A,J terminal
+    class B entry
+    class C dispatcher
+    class D,E,F,G,H,I,J agent
+    class L,M,N,O tool
+    class A,K terminal
 ```
-
-### 3.3 Data Flow
-1. **User input (CLI):** natural task string
-2. **Planner:** uses repo summary to emit JSON plan `{steps[], files[], tests[]}`
-3. **Retriever:** composes context pack: file snippets near symbols, build files, failing test output
-4. **Editor:** generates *unified diff* only; agent applies patch with safe patcher (rejects bad hunks)
-5. **Executor:** runs `prep → build → tests` inside Docker; captures outputs/coverage
-6. **Verifier:** parses failures, updates state; triggers reflection (with retry budget N≤5)
-7. **PR Bot:** creates PR with summary, changelog, test evidence, and TODOs
----
-
-## 4) Architecture & Data Flow
-1. **User input (CLI):** natural task string.
-2. **Planner:** uses repo summary to emit JSON plan `{steps[], files[], tests[]}`.
-3. **Retriever:** composes context pack: file snippets near symbols, build files, failing test output.
-4. **Editor:** generates *unified diff* only; agent applies patch with safe patcher (rejects bad hunks).
-5. **Executor:** runs `prep → build → tests` inside Docker; captures outputs/coverage.
-6. **Verifier:** parses failures, updates state; triggers reflection (with retry budget N≤5).
-7. **PR Bot:** creates PR with summary, changelog, test evidence, and TODOs.
 
 ### 4.1 Framework choices for a fast MVP
 
-**Recommendation (Python‑first):** Use **LangGraph** for the agent state machine + **FastAPI** for a local API, with **OpenAI function‑calling (or Claude Tools)** as the LLM interface. This hits the right balance of control, debuggability, and speed.
+**Recommendation (Python‑first):** Use **LangGraph** for the agent state machine with **OpenAI function‑calling (or Claude Tools)** as the LLM interface. This hits the right balance of control, debuggability, and speed.
 
 #### Orchestration / Agent frameworks
 
