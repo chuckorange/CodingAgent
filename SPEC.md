@@ -63,27 +63,39 @@ Develop a local coding agent  that can: understand a task, retrieve relevant rep
 
 ### 3.2 Architecture
 ```mermaid
-+---------------------+
-| User / CLI          |
-+----------+----------+
-           |
-           v
-+----------+----------+
-|  Supervisor          |
-|  (route)             |
-+----+-----+-----+-----+
-     |     |     |
-     |     |     +--------------------------+
-     |     |                                |
-     v     v                                v
- [Planner] [Retriever] ...           [Editor]
-     |                                   |
-     +--------> standard loop ---------->|
-                                         v
-                             [Policy] -> [Executor] -> [Verifier]
-                                                | pass      | fail
-                                                v           v
-                                              [PR]     back to loop
+graph TD
+    A[User / CLI] --> B[Supervisor Agent]
+    B --> C[Planner Agent]
+    B --> D[Retriever Agent] 
+    B --> E[Editor Agent]
+    B --> F[Executor Agent]
+    B --> G[Verifier Agent]
+    B --> H[Reflector Agent]
+    B --> I[PR Agent]
+    
+    C --> B
+    D --> B
+    E --> B
+    F --> B
+    G --> B
+    H --> B
+    I --> J[End]
+    
+    B -.->|routes based on<br/>next_step| C
+    B -.->|routes based on<br/>next_step| D
+    B -.->|routes based on<br/>next_step| E
+    B -.->|routes based on<br/>next_step| F
+    B -.->|routes based on<br/>next_step| G
+    B -.->|routes based on<br/>next_step| H
+    B -.->|routes based on<br/>next_step| I
+    
+    classDef supervisor fill:#e1f5fe
+    classDef agent fill:#f3e5f5
+    classDef terminal fill:#e8f5e8
+    
+    class B supervisor
+    class C,D,E,F,G,H,I agent
+    class A,J terminal
 ```
 
 ### 3.3 Data Flow
