@@ -144,145 +144,174 @@ graph TD
 ```python
 from langgraph import StateGraph, END
 from typing import TypedDict, Literal
+from langgraph.prebuilt import ToolNode
 
 class AgentState(TypedDict):
     goal: str
+    user_intent: Literal["explore", "explain", "feature", "fix", "pr"]
     plan: dict
     context: str
     diff: str
     run_result: dict
     verdict: Literal["pass", "fail", "error"]
     iter: int
-    current_step: str
-    next_step: str
+    current_agent: str
     error_msg: str
 
-# Multi-agent supervisor architecture
+# Tools available to agents
+tools = {
+    "bash": bash_tool,           # Execute bash commands
+    "read_file": read_file_tool, # Read files from filesystem  
+    "write_file": write_file_tool, # Write files to filesystem
+    "glob": glob_tool,           # Find files by pattern
+    "grep": grep_tool,           # Search in files
+}
+
+# Multi-agent dispatcher architecture
 g = StateGraph(AgentState)
 
-# Agent implementations with proper state transitions
-def supervisor_agent(state: AgentState) -> AgentState:
-    """Routes to next agent based on current workflow state"""
-    return state  # Pass through - routing handled by conditional edges
+# Agent implementations with tool usage
+def dispatcher_agent(state: AgentState) -> AgentState:
+    """Analyzes user intent and dispatches to appropriate agent"""
+    intent = classify_user_intent(state["goal"])  # LLM call to classify intent
+    return {
+        **state,
+        "user_intent": intent,
+        "current_agent": get_agent_for_intent(intent)
+    }
 
 def planner_agent(state: AgentState) -> AgentState:
-    """Creates execution plan and sets next step"""
-    # LLM call to create plan using repo summary
-    plan = create_plan(state["goal"])  # Implementation needed
+    """Creates execution plan using repo summary"""
+    # Use tools to gather repo information
+    repo_summary = tools["bash"]("find . -name '*.py' | head -20")
+    plan = create_plan(state["goal"], repo_summary)
+    
+    next_agent = "retriever" if state["user_intent"] in ["feature", "fix"] else "pr_bot"
     return {
         **state,
         "plan": plan,
-        "next_step": "retrieve"
+        "current_agent": next_agent
     }
 
 def retriever_agent(state: AgentState) -> AgentState:
-    """Gathers relevant context and sets next step"""
-    # Use ripgrep, tree-sitter, vector search
-    context = build_context(state["plan"])  # Implementation needed
+    """Gathers relevant context using file tools"""
+    plan = state["plan"]
+    context_files = []
+    
+    # Use glob to find relevant files
+    for pattern in plan.get("file_patterns", ["*.py"]):
+        files = tools["glob"](pattern)
+        context_files.extend(files)
+    
+    # Read relevant files
+    context = ""
+    for file_path in context_files[:5]:  # Limit context
+        content = tools["read_file"](file_path)
+        context += f"\n--- {file_path} ---\n{content}"
+    
     return {
         **state,
         "context": context,
-        "next_step": "edit"
+        "current_agent": "editor"
     }
 
 def editor_agent(state: AgentState) -> AgentState:
-    """Generates unified diff and sets next step"""
-    # LLM call to generate diff
-    diff = generate_diff(state["plan"], state["context"])  # Implementation needed
+    """Generates code changes using write tools"""
+    # Generate diff based on plan and context
+    diff = generate_diff(state["plan"], state["context"])
+    
+    # Apply changes using write_file tool
+    for file_change in diff.get("files", []):
+        tools["write_file"](file_change["path"], file_change["content"])
+    
     return {
         **state,
         "diff": diff,
-        "next_step": "execute"
+        "current_agent": "executor"
     }
 
 def executor_agent(state: AgentState) -> AgentState:
-    """Runs tests in sandbox and sets next step"""
-    # Apply diff and run tests in Docker
-    result = run_tests_in_sandbox(state["diff"])  # Implementation needed
+    """Runs tests using bash tool"""
+    # Run tests in sandbox
+    test_cmd = state["plan"].get("test_command", "python -m pytest")
+    result = tools["bash"](test_cmd)
+    
     return {
         **state,
         "run_result": result,
-        "next_step": "verify"
+        "current_agent": "verifier"
     }
 
 def verifier_agent(state: AgentState) -> AgentState:
     """Analyzes results and determines next action"""
-    # Parse test results to verdict
-    verdict, error_msg = parse_test_results(state["run_result"])
+    verdict = parse_test_results(state["run_result"])
     
     if verdict == "pass":
-        next_step = "pr"
+        next_agent = "pr_bot"
     elif state.get("iter", 0) >= 5:
-        next_step = "end"
+        next_agent = "end"
     else:
-        next_step = "reflect"
+        next_agent = "reflector"
     
     return {
         **state,
         "verdict": verdict,
-        "error_msg": error_msg,
-        "next_step": next_step
+        "current_agent": next_agent
     }
 
 def reflector_agent(state: AgentState) -> AgentState:
     """Reflects on failure and updates plan"""
-    # LLM call to analyze failure and update plan
     updated_plan = reflect_and_replan(state["plan"], state["error_msg"])
     return {
         **state,
         "plan": updated_plan,
         "iter": state.get("iter", 0) + 1,
-        "next_step": "retrieve"
+        "current_agent": "retriever"
     }
 
-def pr_agent(state: AgentState) -> AgentState:
-    """Creates PR and ends workflow"""
-    # Create GitHub PR
-    pr_url = create_github_pr(state["diff"], state["plan"])
+def pr_bot_agent(state: AgentState) -> AgentState:
+    """Creates PR using bash/git tools"""
+    # Create PR using git commands
+    pr_url = tools["bash"]("gh pr create --title 'Agent changes' --body 'Auto-generated'")
     return {
         **state,
         "pr_url": pr_url,
-        "next_step": "end"
+        "current_agent": "end"
     }
 
+# Helper functions
+def get_agent_for_intent(intent: str) -> str:
+    intent_mapping = {
+        "explore": "pr_bot",      # Direct to explanation output
+        "explain": "pr_bot",      # Direct to explanation output  
+        "feature": "planner",     # Need planning for features
+        "fix": "planner",         # Need planning for fixes
+        "pr": "pr_bot"            # Direct to PR creation
+    }
+    return intent_mapping.get(intent, "planner")
+
 # Add all nodes
-g.add_node("supervisor", supervisor_agent)
+g.add_node("dispatcher", dispatcher_agent)
 g.add_node("planner", planner_agent)
 g.add_node("retriever", retriever_agent)
 g.add_node("editor", editor_agent)
 g.add_node("executor", executor_agent)
 g.add_node("verifier", verifier_agent)
 g.add_node("reflector", reflector_agent)
-g.add_node("pr_agent", pr_agent)
+g.add_node("pr_bot", pr_bot_agent)
 
-# Supervisor routing logic
-def supervisor_router(state: AgentState) -> str:
-    next_step = state.get("next_step", "plan")
-    
-    if next_step == "plan":
-        return "planner"
-    elif next_step == "retrieve":
-        return "retriever"
-    elif next_step == "edit":
-        return "editor"
-    elif next_step == "execute":
-        return "executor"
-    elif next_step == "verify":
-        return "verifier"
-    elif next_step == "reflect":
-        return "reflector"
-    elif next_step == "pr":
-        return "pr_agent"
-    else:  # next_step == "end"
-        return END
+# Dispatcher routing logic
+def agent_router(state: AgentState) -> str:
+    current_agent = state.get("current_agent", "dispatcher")
+    return current_agent if current_agent != "end" else END
 
-# Connect nodes - all agents return to supervisor for routing
-g.add_conditional_edges("supervisor", supervisor_router)
+# Connect nodes - all agents return to router
+g.add_conditional_edges("dispatcher", agent_router)
 for agent in ["planner", "retriever", "editor", "executor", "verifier", "reflector"]:
-    g.add_edge(agent, "supervisor")
-g.add_edge("pr_agent", END)
+    g.add_conditional_edges(agent, agent_router)
+g.add_edge("pr_bot", END)
 
-g.set_entry_point("supervisor")
+g.set_entry_point("dispatcher")
 engine = g.compile()
 ```
 
