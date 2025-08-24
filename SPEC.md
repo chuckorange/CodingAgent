@@ -23,13 +23,27 @@ Develop a local coding agent  that can: understand a task, retrieve relevant rep
 
 ## 2) User Stories
 
-### Core Workflows
+### Core Workflow
 
-1. **Explore codebase**: "devagent explore" → agent analyzes project structure, identifies key components, maps dependencies, explains architecture and data flow
-2. **Understand specific code**: "devagent explain src/auth.py" → agent reads file, analyzes context, explains purpose, dependencies, and how it fits into overall system  
-3. **Small feature**: "devagent add GET /users/\:id" → adds handler, updates router/types, adds/updates tests
-4. **Fix failing tests**: "devagent fix tests" → agent finds failure, edits code/tests, passes locally, opens PR
-5. **Explain change**: Show rationale + risks in PR and inline code comments for tricky edits
+1. **Enter conversation mode**: `devagent` → starts interactive bot conversation
+2. **Conversational interface** where users can naturally:
+   - **Ask questions**: "What does this codebase do?", "How does authentication work?"
+   - **Request explanations**: "Explain src/auth.py", "Show me the database models" 
+   - **Add features**: "Add a GET /users/:id endpoint", "Create a user dashboard"
+   - **Fix issues**: "Fix the failing tests", "Debug the login bug"
+   - **Get guidance**: "Where should I add validation?", "How do I deploy this?"
+
+**Usage Flow:**
+```bash
+$ devagent
+🤖 DevAgent: Hi! I'm your coding assistant. What would you like to know or do?
+👤 User: What does this project do?
+🤖 DevAgent: [analyzes codebase and explains project]
+👤 User: Add a user profile endpoint
+🤖 DevAgent: I'll create a GET /users/:id endpoint. Let me implement this...
+👤 User: Run the tests
+🤖 DevAgent: [runs tests and reports results]
+```
 
 ---
 ## 3) System Overview
