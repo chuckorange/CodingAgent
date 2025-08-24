@@ -40,8 +40,7 @@ Develop a local coding agent  that can: understand a task, retrieve relevant rep
 - **Command (`devagent`)** – task entrypoint
 
 **Agents**
-- **Dispatcher** - Dispatch the query to subagent according to user's intent 
-- **Planner** – produce structured work plan
+- **Dispatcher** - Classify user intent and create execution plan, then dispatch to appropriate subagent
 - **Retriever** – search over codebase with tools like ls, read_file, grep, glob, etc.
 - **Editor** – output unified diffs; Write files
 - **Executor** – sandbox runner; test selection/execution
@@ -58,35 +57,33 @@ Develop a local coding agent  that can: understand a task, retrieve relevant rep
 graph TD
     A[User / CLI] --> B[devagent Command]
     B --> C[Dispatcher Agent]
-    C --> D[Planner Agent]
-    C --> E[Retriever Agent] 
-    C --> F[Editor Agent]
-    C --> G[Executor Agent]
-    C --> H[Verifier Agent]
-    C --> I[Reflector Agent]
-    C --> J[PR Bot Agent]
+    C --> D[Retriever Agent] 
+    C --> E[Editor Agent]
+    C --> F[Executor Agent]
+    C --> G[Verifier Agent]
+    C --> H[Reflector Agent]
+    C --> I[PR Bot Agent]
     
     D --> C
     E --> C
     F --> C
     G --> C
     H --> C
-    I --> C
-    J --> K[End]
+    I --> J[End]
     
-    E -.->|uses| L[Bash Tool]
-    E -.->|uses| M[ReadFile Tool]
-    E -.->|uses| N[Glob/Grep Tools]
-    F -.->|uses| O[WriteFile Tool]
-    G -.->|uses| L
+    C -.->|uses for planning| K[Bash Tool]
+    D -.->|uses| K
+    D -.->|uses| L[ReadFile Tool]
+    D -.->|uses| M[Glob/Grep Tools]
+    E -.->|uses| N[WriteFile Tool]
+    F -.->|uses| K
     
-    C -.->|dispatches based on<br/>user intent| D
-    C -.->|dispatches based on<br/>user intent| E
-    C -.->|dispatches based on<br/>user intent| F
-    C -.->|dispatches based on<br/>user intent| G
-    C -.->|dispatches based on<br/>user intent| H
-    C -.->|dispatches based on<br/>user intent| I
-    C -.->|dispatches based on<br/>user intent| J
+    C -.->|classifies intent +<br/>creates plan, then dispatches| D
+    C -.->|classifies intent +<br/>creates plan, then dispatches| E
+    C -.->|classifies intent +<br/>creates plan, then dispatches| F
+    C -.->|classifies intent +<br/>creates plan, then dispatches| G
+    C -.->|classifies intent +<br/>creates plan, then dispatches| H
+    C -.->|classifies intent +<br/>creates plan, then dispatches| I
     
     classDef entry fill:#e8f5e8
     classDef dispatcher fill:#e1f5fe
@@ -96,9 +93,9 @@ graph TD
     
     class B entry
     class C dispatcher
-    class D,E,F,G,H,I,J agent
-    class L,M,N,O tool
-    class A,K terminal
+    class D,E,F,G,H,I agent
+    class K,L,M,N tool
+    class A,J terminal
 ```
 
 ### 4.1 Framework choices for a fast MVP
@@ -171,23 +168,28 @@ g = StateGraph(AgentState)
 
 # Agent implementations with tool usage
 def dispatcher_agent(state: AgentState) -> AgentState:
-    """Analyzes user intent and dispatches to appropriate agent"""
+    """Classifies user intent, creates execution plan, and dispatches to appropriate agent"""
+    # Classify user intent
     intent = classify_user_intent(state["goal"])  # LLM call to classify intent
+    
+    # Create execution plan based on intent
+    if intent in ["explore", "explain"]:
+        # Simple tasks - lightweight planning
+        plan = {
+            "action": intent,
+            "target_files": extract_file_paths(state["goal"]),  # Extract any mentioned files
+            "output_format": "explanation"
+        }
+        next_agent = "retriever"  # Go directly to context gathering
+    else:
+        # Complex tasks - detailed planning with repo analysis
+        repo_summary = tools["bash"]("find . -name '*.py' | head -20")
+        plan = create_detailed_plan(state["goal"], repo_summary, intent)
+        next_agent = "retriever"  # Always start with context gathering
+    
     return {
         **state,
         "user_intent": intent,
-        "current_agent": get_agent_for_intent(intent)
-    }
-
-def planner_agent(state: AgentState) -> AgentState:
-    """Creates execution plan using repo summary"""
-    # Use tools to gather repo information
-    repo_summary = tools["bash"]("find . -name '*.py' | head -20")
-    plan = create_plan(state["goal"], repo_summary)
-    
-    next_agent = "retriever" if state["user_intent"] in ["feature", "fix"] else "pr_bot"
-    return {
-        **state,
         "plan": plan,
         "current_agent": next_agent
     }
@@ -279,19 +281,25 @@ def pr_bot_agent(state: AgentState) -> AgentState:
     }
 
 # Helper functions
-def get_agent_for_intent(intent: str) -> str:
-    intent_mapping = {
-        "explore": "pr_bot",      # Direct to explanation output
-        "explain": "pr_bot",      # Direct to explanation output  
-        "feature": "planner",     # Need planning for features
-        "fix": "planner",         # Need planning for fixes
-        "pr": "pr_bot"            # Direct to PR creation
+def extract_file_paths(goal: str) -> list:
+    """Extract file paths mentioned in user goal"""
+    import re
+    # Simple regex to find file paths
+    paths = re.findall(r'[\w/\.]+\.py', goal)
+    return paths
+
+def create_detailed_plan(goal: str, repo_summary: str, intent: str) -> dict:
+    """Create detailed execution plan for complex tasks"""
+    # This would be an LLM call in practice
+    return {
+        "action": intent,
+        "steps": ["analyze", "implement", "test"],
+        "files_to_modify": [],
+        "test_command": "python -m pytest"
     }
-    return intent_mapping.get(intent, "planner")
 
 # Add all nodes
 g.add_node("dispatcher", dispatcher_agent)
-g.add_node("planner", planner_agent)
 g.add_node("retriever", retriever_agent)
 g.add_node("editor", editor_agent)
 g.add_node("executor", executor_agent)
@@ -306,7 +314,7 @@ def agent_router(state: AgentState) -> str:
 
 # Connect nodes - all agents return to router
 g.add_conditional_edges("dispatcher", agent_router)
-for agent in ["planner", "retriever", "editor", "executor", "verifier", "reflector"]:
+for agent in ["retriever", "editor", "executor", "verifier", "reflector"]:
     g.add_conditional_edges(agent, agent_router)
 g.add_edge("pr_bot", END)
 
