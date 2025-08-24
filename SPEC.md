@@ -103,7 +103,7 @@ graph TD
 
 ### 4.1 Framework choices for a fast MVP
 
-**Recommendation (Python‑first):** Use **LangGraph** for the agent state machine with **OpenAI function‑calling (or Claude Tools)** as the LLM interface. This hits the right balance of control, debuggability, and speed.
+**Recommendation (Python‑first):** Use **LangGraph** for the agent state machine with **OpenAI function‑calling (or Claude Tools)** as the LLM interface. This hits the right balance of control, debuggability, and speed for a local CLI tool.
 
 #### Orchestration / Agent frameworks
 
@@ -133,7 +133,6 @@ graph TD
 
 - Orchestration: **LangGraph**
 - LLM client: **openai/anthropic** SDK (function calling / tool use)
-- API: **FastAPI** (optional, for local HTTP endpoints)
 - Retrieval: **ripgrep**, **tree‑sitter**, **sentence‑transformers + FAISS**, **SQLite**
 - Patching: **gitpython** or shell `git`, plus custom validator
 - Sandbox: **Docker SDK for Python** or shell `docker`
@@ -362,7 +361,7 @@ devagent-bench/
 ├── simple-flask-api/     # REST API with SQLite
 ├── data-pipeline/        # ETL scripts with pandas
 ├── cli-tool/            # Click-based command line app
-└── microservice/        # FastAPI + PostgreSQL service
+└── microservice/        # Python service + PostgreSQL
 ```
 
 **Task Categories by Complexity:**
