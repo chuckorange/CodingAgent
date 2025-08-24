@@ -4,6 +4,8 @@ import click
 from rich.console import Console
 from rich.prompt import Prompt
 
+from .core.graph import DevAgentGraph
+
 console = Console()
 
 
@@ -16,6 +18,9 @@ def main():
     console.print("[dim]Type 'exit' or 'quit' to end the conversation.[/dim]")
     console.print()
     
+    # Initialize the agent graph
+    agent_graph = DevAgentGraph()
+    
     while True:
         try:
             user_input = Prompt.ask("👤 You")
@@ -26,11 +31,14 @@ def main():
             
             if not user_input.strip():
                 continue
-                
-            # TODO: Process user input through LangGraph agents
-            console.print("🤖 [bold blue]DevAgent[/bold blue]: I understand you want to:")
-            console.print(f"   '{user_input}'")
-            console.print("   [yellow]But I'm still learning how to help with that![/yellow]")
+            
+            # Process through LangGraph agents
+            console.print("🤖 [bold blue]DevAgent[/bold blue]: Let me process that...")
+            
+            result = agent_graph.process_user_input(user_input)
+            response = result.get("response", "No response generated")
+            
+            console.print(f"🤖 [bold blue]DevAgent[/bold blue]: {response}")
             console.print()
             
         except KeyboardInterrupt:
