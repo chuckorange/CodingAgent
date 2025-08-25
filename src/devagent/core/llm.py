@@ -154,9 +154,11 @@ def set_llm_client(client: LLMClient) -> None:
 class DevAgentChatModel(BaseChatModel):
     """Adapter to use DevAgent LLM clients as LangChain chat models."""
     
-    def __init__(self, llm_client: LLMClient = None):
-        super().__init__()
-        self.llm_client = llm_client or get_llm_client()
+    llm_client: LLMClient
+    
+    def __init__(self, llm_client: Optional[LLMClient] = None, **kwargs):
+        # Initialize with the LLM client as a model field
+        super().__init__(llm_client=llm_client or get_llm_client(), **kwargs)
     
     def _generate(
         self,
@@ -205,9 +207,16 @@ class DevAgentChatModel(BaseChatModel):
         """Return identifier of llm type."""
         return "devagent_chat_model"
     
+    @property
     def _identifying_params(self) -> Dict[str, Any]:
         """Get the identifying parameters."""
         return {"llm_client": str(type(self.llm_client).__name__)}
+    
+    def bind_tools(self, tools, **kwargs):
+        """Bind tools to the model - required for create_react_agent."""
+        # For now, just return self since our tools are handled by the agent framework
+        # In a full implementation, we'd need to convert tools to the format our LLM understands
+        return self
 
 
 def get_langchain_model() -> BaseChatModel:

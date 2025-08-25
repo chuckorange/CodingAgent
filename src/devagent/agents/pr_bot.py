@@ -1,7 +1,7 @@
 """PR Bot agent for version control and GitHub integration."""
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from langgraph_supervisor import create_react_agent
+from langgraph.prebuilt import create_react_agent
 
 from ..tools.core_tools import PR_BOT_TOOLS
 
@@ -18,9 +18,10 @@ def create_pr_bot_agent(model: BaseChatModel):
     return create_react_agent(
         model=model,
         tools=PR_BOT_TOOLS,
-        state_modifier=(
+        prompt=(
             "You are a version control and deployment specialist. Your job is to manage git operations and create PRs. "
             "Use bash_tool for git commands, PR creation, and deployment tasks. "
             "Use read_file_tool to examine changes. Handle all aspects of code deployment and version control."
-        )
+        ),
+        name="pr_bot"
     )
