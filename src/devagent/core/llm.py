@@ -63,7 +63,7 @@ Respond with ONLY the category name, nothing else."""
 class OllamaClient(LLMClient):
     """Ollama local LLM client implementation."""
     
-    def __init__(self, model: str = "llama3.1:8b", timeout: int = 10):
+    def __init__(self, model: str = "llama3.1:8b", timeout: int = 20):
         self.model = model
         self.timeout = timeout
         

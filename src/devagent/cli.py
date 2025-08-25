@@ -1,5 +1,6 @@
 """CLI entry point for DevAgent."""
 
+import os
 import click
 from rich.console import Console
 from rich.prompt import Prompt
@@ -13,14 +14,18 @@ console = Console()
 @click.version_option()
 def main():
     """DevAgent - Your local AI coding assistant."""
+    # Get current working directory for codebase context
+    current_dir = os.getcwd()
+    
     console.print("🤖 [bold blue]DevAgent[/bold blue] - Starting conversation mode...")
+    console.print(f"Working directory: [cyan]{current_dir}[/cyan]")
     console.print("Hi! I'm your coding assistant. What would you like to know or do?")
     console.print("[dim]Type 'exit' or 'quit' to end the conversation.[/dim]")
     console.print("[dim]Type 'reset' to start a fresh conversation.[/dim]")
     console.print()
     
-    # Initialize the agent graph
-    agent_graph = DevAgentGraph()
+    # Initialize the agent graph with current directory context
+    agent_graph = DevAgentGraph(working_directory=current_dir)
     
     while True:
         try:

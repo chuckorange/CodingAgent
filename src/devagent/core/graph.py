@@ -19,9 +19,10 @@ from ..agents import (
 class DevAgentGraph:
     """Main LangGraph orchestrator using langgraph-supervisor pattern."""
     
-    def __init__(self):
+    def __init__(self, working_directory: str = None):
         self.compiled_graph = None
         self.current_state = None
+        self.working_directory = working_directory or "."
         self._setup_graph()
     
     def _setup_graph(self) -> None:
@@ -47,22 +48,24 @@ class DevAgentGraph:
             ],
             model=get_langchain_model(),
             prompt=(
-                "You are a software development team supervisor coordinating specialist agents. "
-                "Your team helps users with coding tasks by analyzing code, making changes, testing, and deploying. "
-                "\n\nFirst, analyze the user's request and classify the intent:"
-                "\n- 'explain' requests: Use retriever to analyze and explain code"
-                "\n- 'feature' requests: Use retriever→editor→executor→verifier→pr_bot workflow"  
-                "\n- 'fix' requests: Use retriever→editor→executor→verifier workflow"
-                "\n- 'pr' requests: Use pr_bot to create pull requests"
-                "\n- General questions: Answer directly without calling agents"
-                "\n\nAgent capabilities:"
-                "\n- retriever: Searches codebase, reads files, gathers context"
-                "\n- editor: Generates code changes, creates/modifies files" 
-                "\n- executor: Runs tests, executes commands, validates changes"
-                "\n- verifier: Reviews results, analyzes outcomes, ensures quality"
-                "\n- pr_bot: Creates PRs, commits changes, handles version control"
-                "\n\nCoordinate these agents based on the specific task needs. "
-                "You can call multiple agents in sequence or revisit agents as needed."
+                f"You are a software development team supervisor coordinating specialist agents. "
+                f"Your team helps users with coding tasks by analyzing code, making changes, testing, and deploying. "
+                f"\n\n**CURRENT CONTEXT**: Working in directory `{self.working_directory}`"
+                f"\nAll file operations and analysis should be relative to this directory unless absolute paths are specified."
+                f"\n\nFirst, analyze the user's request and classify the intent:"
+                f"\n- 'explain' requests: Use retriever to analyze and explain code"
+                f"\n- 'feature' requests: Use retriever→editor→executor→verifier→pr_bot workflow"  
+                f"\n- 'fix' requests: Use retriever→editor→executor→verifier workflow"
+                f"\n- 'pr' requests: Use pr_bot to create pull requests"
+                f"\n- General questions: Answer directly without calling agents"
+                f"\n\nAgent capabilities:"
+                f"\n- retriever: Searches codebase starting from `{self.working_directory}`, reads files, gathers context"
+                f"\n- editor: Generates code changes, creates/modifies files" 
+                f"\n- executor: Runs tests, executes commands, validates changes"
+                f"\n- verifier: Reviews results, analyzes outcomes, ensures quality"
+                f"\n- pr_bot: Creates PRs, commits changes, handles version control"
+                f"\n\nCoordinate these agents based on the specific task needs. "
+                f"You can call multiple agents in sequence or revisit agents as needed."
             )
         )
         
@@ -121,7 +124,7 @@ class DevAgentGraph:
             "messages": [],
             "goal": "",
             "user_intent": "",
-            "context": "",
+            "context": f"Working directory: {self.working_directory}",
             "diff": "",
             "run_result": {},
             "review_result": "",
