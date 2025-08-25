@@ -1,29 +1,26 @@
 """Editor agent for code generation and file modifications."""
 
-from typing import Dict, Any
-from ..core.state import AgentState
+from langchain_core.language_models.chat_models import BaseChatModel
+from langgraph_supervisor import create_react_agent
+
+from ..tools.core_tools import EDITOR_TOOLS
 
 
-def editor_agent(state: AgentState) -> AgentState:
-    """
-    Generates code changes using context from retriever.
+def create_editor_agent(model: BaseChatModel):
+    """Create an editor agent for code generation and file modifications.
     
     Args:
-        state: Current agent state with context and plan
+        model: LangChain-compatible model for agent reasoning
         
     Returns:
-        Updated state with diff and next agent routing
+        Configured editor agent
     """
-    # TODO: Generate unified diff based on plan and context
-    # TODO: Apply changes using write_file tool
-    # TODO: Create diff summary
-    
-    plan = state["plan"]
-    context = state["context"]
-    
-    # Placeholder implementation
-    return {
-        **state,
-        "diff": f"Generated changes for: {plan.get('action', 'unknown')}",
-        "current_agent": "end"  # TODO: Route to executor
-    }
+    return create_react_agent(
+        model=model,
+        tools=EDITOR_TOOLS,
+        state_modifier=(
+            "You are a code generation and editing specialist. Your job is to create, modify, and improve code. "
+            "Use read_file_tool to understand existing code, write_file_tool to create/modify files, "
+            "and bash_tool for file operations. Generate clean, well-documented, and functional code."
+        )
+    )

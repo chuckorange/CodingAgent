@@ -1,33 +1,26 @@
-"""PR Bot agent for GitHub integration."""
+"""PR Bot agent for version control and GitHub integration."""
 
-from typing import Dict, Any
-from ..core.state import AgentState
+from langchain_core.language_models.chat_models import BaseChatModel
+from langgraph_supervisor import create_react_agent
+
+from ..tools.core_tools import PR_BOT_TOOLS
 
 
-def pr_bot_agent(state: AgentState) -> AgentState:
-    """
-    Creates PRs with title/body and attaches run logs.
+def create_pr_bot_agent(model: BaseChatModel):
+    """Create a PR bot agent for version control and GitHub integration.
     
     Args:
-        state: Current agent state with successful changes
+        model: LangChain-compatible model for agent reasoning
         
     Returns:
-        Updated state with PR URL and completion
+        Configured PR bot agent
     """
-    # TODO: Use git commands to create branch and commit changes
-    # TODO: Generate PR title and description from plan and diff
-    # TODO: Create PR using GitHub API
-    # TODO: Add run logs and review comments
-    
-    plan = state["plan"]
-    diff = state["diff"]
-    
-    # Placeholder implementation
-    pr_title = f"DevAgent: {plan.get('action', 'Changes')}"
-    
-    return {
-        **state,
-        "pr_url": f"https://github.com/user/repo/pull/123",  # TODO: Real PR creation
-        "response": f"Created PR: {pr_title}",
-        "current_agent": "end"
-    }
+    return create_react_agent(
+        model=model,
+        tools=PR_BOT_TOOLS,
+        state_modifier=(
+            "You are a version control and deployment specialist. Your job is to manage git operations and create PRs. "
+            "Use bash_tool for git commands, PR creation, and deployment tasks. "
+            "Use read_file_tool to examine changes. Handle all aspects of code deployment and version control."
+        )
+    )

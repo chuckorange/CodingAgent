@@ -1,39 +1,26 @@
 """Verifier agent for result analysis and decision making."""
 
-from typing import Dict, Any
-from ..core.state import AgentState
+from langchain_core.language_models.chat_models import BaseChatModel
+from langgraph_supervisor import create_react_agent
+
+from ..tools.core_tools import VERIFIER_TOOLS
 
 
-def verifier_agent(state: AgentState) -> AgentState:
-    """
-    Analyzes results and determines next action.
+def create_verifier_agent(model: BaseChatModel):
+    """Create a verifier agent for analyzing results and making decisions.
     
     Args:
-        state: Current agent state with run_result from executor
+        model: LangChain-compatible model for agent reasoning
         
     Returns:
-        Updated state with verdict and next agent routing
+        Configured verifier agent
     """
-    # TODO: Parse test results and determine pass/fail
-    # TODO: Decide on next action based on verdict
-    # TODO: Handle retry logic with iteration counter
-    
-    run_result = state["run_result"]
-    iter_count = state.get("iter", 0)
-    
-    # Placeholder implementation
-    if run_result.get("status") == "success":
-        verdict = "pass"
-        next_agent = "pr_bot"
-    elif iter_count >= 5:
-        verdict = "error"
-        next_agent = "end"
-    else:
-        verdict = "fail"
-        next_agent = "reflector"
-    
-    return {
-        **state,
-        "verdict": verdict,
-        "current_agent": next_agent
-    }
+    return create_react_agent(
+        model=model,
+        tools=VERIFIER_TOOLS,
+        state_modifier=(
+            "You are a code review and quality assurance specialist. Your job is to analyze results and make decisions. "
+            "Use read_file_tool to examine code and test results, bash_tool to run quality checks. "
+            "Provide thorough analysis of code quality, test results, and overall project health."
+        )
+    )

@@ -16,6 +16,7 @@ def main():
     console.print("🤖 [bold blue]DevAgent[/bold blue] - Starting conversation mode...")
     console.print("Hi! I'm your coding assistant. What would you like to know or do?")
     console.print("[dim]Type 'exit' or 'quit' to end the conversation.[/dim]")
+    console.print("[dim]Type 'reset' to start a fresh conversation.[/dim]")
     console.print()
     
     # Initialize the agent graph
@@ -28,6 +29,12 @@ def main():
             if user_input.lower() in ['exit', 'quit', 'q']:
                 console.print("👋 Goodbye!")
                 break
+            
+            if user_input.lower() == 'reset':
+                agent_graph.reset_conversation()
+                console.print("🔄 [yellow]Conversation reset. Starting fresh![/yellow]")
+                console.print()
+                continue
             
             if not user_input.strip():
                 continue

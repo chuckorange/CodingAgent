@@ -1,32 +1,26 @@
-"""Executor agent for running tests and commands in sandbox."""
+"""Executor agent for code execution and testing."""
 
-from typing import Dict, Any
-from ..core.state import AgentState
+from langchain_core.language_models.chat_models import BaseChatModel
+from langgraph_supervisor import create_react_agent
+
+from ..tools.core_tools import EXECUTOR_TOOLS
 
 
-def executor_agent(state: AgentState) -> AgentState:
-    """
-    Runs tests and commands in Docker sandbox.
+def create_executor_agent(model: BaseChatModel):
+    """Create an executor agent for running tests and validating code changes.
     
     Args:
-        state: Current agent state with diff from editor
+        model: LangChain-compatible model for agent reasoning
         
     Returns:
-        Updated state with run_result and next agent routing
+        Configured executor agent
     """
-    # TODO: Set up Docker container
-    # TODO: Run test commands specified in plan
-    # TODO: Capture and parse results
-    
-    plan = state["plan"]
-    diff = state["diff"]
-    
-    # Placeholder implementation
-    return {
-        **state,
-        "run_result": {
-            "status": "success",
-            "output": f"Executed tests for changes: {diff[:50]}..."
-        },
-        "current_agent": "verifier"
-    }
+    return create_react_agent(
+        model=model,
+        tools=EXECUTOR_TOOLS,
+        state_modifier=(
+            "You are a code execution and testing specialist. Your job is to run tests and validate code changes. "
+            "Use bash_tool to execute tests, run commands, and validate functionality. "
+            "Use read_file_tool to examine test files and results. Report on test outcomes and code quality."
+        )
+    )

@@ -22,6 +22,7 @@ classifiers = [
 dependencies = [
     # Core orchestration
     "langgraph>=0.0.60",
+    "langgraph-supervisor>=0.0.29",
     "langchain>=0.1.0",
     
     # LLM clients

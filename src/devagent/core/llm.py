@@ -3,6 +3,9 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 import re
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from langchain_core.outputs import ChatResult, ChatGeneration
 
 
 class LLMClient(ABC):
@@ -146,3 +149,67 @@ def set_llm_client(client: LLMClient) -> None:
     """Set the global LLM client instance."""
     global _llm_client
     _llm_client = client
+
+
+class DevAgentChatModel(BaseChatModel):
+    """Adapter to use DevAgent LLM clients as LangChain chat models."""
+    
+    def __init__(self, llm_client: LLMClient = None):
+        super().__init__()
+        self.llm_client = llm_client or get_llm_client()
+    
+    def _generate(
+        self,
+        messages: List[BaseMessage],
+        stop: List[str] = None,
+        run_manager = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        """Generate chat response using DevAgent LLM client."""
+        
+        # Convert LangChain messages to DevAgent format
+        devagent_messages = self._convert_to_devagent_messages(messages)
+        
+        # Call DevAgent LLM client
+        response_text = self.llm_client.chat(devagent_messages)
+        
+        # Convert response back to LangChain format
+        ai_message = AIMessage(content=response_text)
+        generation = ChatGeneration(message=ai_message)
+        
+        return ChatResult(generations=[generation])
+    
+    def _convert_to_devagent_messages(self, messages: List[BaseMessage]) -> List[Dict[str, str]]:
+        """Convert LangChain messages to DevAgent format."""
+        devagent_messages = []
+        
+        for message in messages:
+            if isinstance(message, HumanMessage):
+                role = "user"
+            elif isinstance(message, AIMessage):
+                role = "assistant"
+            elif isinstance(message, SystemMessage):
+                role = "system"
+            else:
+                role = "user"  # Fallback
+            
+            devagent_messages.append({
+                "role": role,
+                "content": message.content
+            })
+        
+        return devagent_messages
+    
+    @property
+    def _llm_type(self) -> str:
+        """Return identifier of llm type."""
+        return "devagent_chat_model"
+    
+    def _identifying_params(self) -> Dict[str, Any]:
+        """Get the identifying parameters."""
+        return {"llm_client": str(type(self.llm_client).__name__)}
+
+
+def get_langchain_model() -> BaseChatModel:
+    """Get a LangChain-compatible model using DevAgent's LLM client."""
+    return DevAgentChatModel()

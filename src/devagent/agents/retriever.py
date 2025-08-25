@@ -1,28 +1,26 @@
-"""Retriever agent for codebase search and context gathering."""
+"""Retriever agent for codebase analysis and context gathering."""
 
-from typing import Dict, Any
-from ..core.state import AgentState
+from langchain_core.language_models.chat_models import BaseChatModel
+from langgraph_supervisor import create_react_agent
+
+from ..tools.core_tools import RETRIEVER_TOOLS
 
 
-def retriever_agent(state: AgentState) -> AgentState:
-    """
-    Gathers relevant context using file search tools.
+def create_retriever_agent(model: BaseChatModel):
+    """Create a retriever agent for codebase search and context gathering.
     
     Args:
-        state: Current agent state with plan from dispatcher
+        model: LangChain-compatible model for agent reasoning
         
     Returns:
-        Updated state with context and next agent routing
+        Configured retriever agent
     """
-    # TODO: Use glob/grep tools to find relevant files
-    # TODO: Read and summarize relevant code context
-    # TODO: Add context to state
-    
-    plan = state["plan"]
-    
-    # Placeholder implementation
-    return {
-        **state,
-        "context": f"Found context related to: {plan.get('target', 'unknown')}",
-        "current_agent": "end"  # TODO: Route to next agent
-    }
+    return create_react_agent(
+        model=model,
+        tools=RETRIEVER_TOOLS,
+        state_modifier=(
+            "You are a codebase analysis specialist. Your job is to search, read, and understand code structures. "
+            "Use glob_tool to find files, read_file_tool to examine code, grep_tool to search for patterns, "
+            "and bash_tool for system commands. Provide detailed analysis of codebases and file contents."
+        )
+    )
