@@ -4,6 +4,7 @@ from typing import Dict, Any
 from langchain_core.messages import HumanMessage
 
 from langgraph_supervisor import create_supervisor
+from langchain_ollama import ChatOllama
 from .state import AgentState
 from .llm import get_langchain_model
 from ..agents import (
@@ -28,7 +29,8 @@ class DevAgentGraph:
     def _setup_graph(self) -> None:
         """Set up the supervisor pattern using create_react_agent."""
         
-        model = get_langchain_model()
+        # Use ChatOllama directly for better compatibility  
+        model = ChatOllama(model="qwen2.5:14b-instruct", temperature=0.2)
         
         # Create specialist agents using dedicated factory functions
         retriever_agent = create_retriever_agent(model)
@@ -46,26 +48,15 @@ class DevAgentGraph:
                 verifier_agent,
                 pr_bot_agent
             ],
-            model=get_langchain_model(),
+            model=model,
             prompt=(
-                f"You are a software development team supervisor coordinating specialist agents. "
-                f"Your team helps users with coding tasks by analyzing code, making changes, testing, and deploying. "
-                f"\n\n**CURRENT CONTEXT**: Working in directory `{self.working_directory}`"
-                f"\nAll file operations and analysis should be relative to this directory unless absolute paths are specified."
-                f"\n\nFirst, analyze the user's request and classify the intent:"
-                f"\n- 'explain' requests: Use retriever to analyze and explain code"
-                f"\n- 'feature' requests: Use retriever→editor→executor→verifier→pr_bot workflow"  
-                f"\n- 'fix' requests: Use retriever→editor→executor→verifier workflow"
-                f"\n- 'pr' requests: Use pr_bot to create pull requests"
-                f"\n- General questions: Answer directly without calling agents"
-                f"\n\nAgent capabilities:"
-                f"\n- retriever: Searches codebase starting from `{self.working_directory}`, reads files, gathers context"
-                f"\n- editor: Generates code changes, creates/modifies files" 
-                f"\n- executor: Runs tests, executes commands, validates changes"
-                f"\n- verifier: Reviews results, analyzes outcomes, ensures quality"
-                f"\n- pr_bot: Creates PRs, commits changes, handles version control"
-                f"\n\nCoordinate these agents based on the specific task needs. "
-                f"You can call multiple agents in sequence or revisit agents as needed."
+                f"You are a software development team supervisor managing specialist agents. "
+                f"Working directory: {self.working_directory} "
+                f"For codebase analysis, use retriever. "
+                f"For code changes, use editor. "
+                f"For running tests, use executor. "
+                f"For code review, use verifier. "
+                f"For git operations, use pr_bot."
             )
         )
         
